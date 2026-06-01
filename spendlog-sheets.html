@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>spendlog — shared expense tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+  :root {
+    --bg:#F7F4EF;--surface:#fff;--border:#E8E3DB;--text:#1A1612;
+    --muted:#9A9088;--accent:#C84B31;--radius:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+  /* ── Setup ── */
+  #setup-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .setup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;max-width:540px;width:100%;box-shadow:0 4px 40px rgba(0,0,0,.06);}
+  .setup-logo{font-size:28px;font-weight:800;letter-spacing:-.04em;margin-bottom:6px;}
+  .setup-sub{font-size:13px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:28px;}
+  .setup-section{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+  .setup-section-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:14px;}
+  .step{display:flex;gap:12px;margin-bottom:14px;}
+  .step:last-child{margin-bottom:0;}
+  .step-num{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+  .step-text{font-size:12px;color:var(--muted);line-height:1.7;flex:1;}
+  .step-text a{color:var(--accent);}
+  .step-text b{color:var(--text);}
+  .inp{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;background:#fff;color:var(--text);outline:none;transition:border .2s;margin-top:8px;}
+  .inp:focus{border-color:var(--accent);}
+  .inp::placeholder{color:var(--muted);}
+  .setup-btn{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:8px;}
+  .setup-btn:hover{opacity:.88;}
+  .err-box{margin-top:12px;padding:10px 14px;background:#FEE2E2;border-radius:8px;font-size:12px;color:#991B1B;display:none;}
+  .info-box{padding:10px 14px;background:#EFF6FF;border-radius:8px;font-size:11px;color:#1D4ED8;font-family:'DM Mono',monospace;line-height:1.6;margin-top:8px;}
+  #google-signin-btn{margin-top:12px;}
+
+  /* ── App ── */
+  #app{display:none;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;height:58px;}
+  .logo{font-size:20px;font-weight:800;letter-spacing:-.04em;}
+  .logo span{color:var(--accent);}
+  .hdr-right{display:flex;align-items:center;gap:10px;}
+  .user-badge{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:var(--bg);padding:5px 12px;border-radius:20px;border:1px solid var(--border);}
+  .signout-btn{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:none;border:1px solid var(--border);padding:5px 10px;border-radius:20px;cursor:pointer;transition:all .18s;}
+  .signout-btn:hover{border-color:var(--accent);color:var(--accent);}
+  nav{display:flex;gap:2px;}
+  .nav-btn{background:none;border:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:500;padding:7px 16px;border-radius:20px;cursor:pointer;color:var(--muted);transition:all .2s;}
+  .nav-btn.active{background:var(--text);color:var(--bg);}
+  .nav-btn:hover:not(.active){background:var(--border);color:var(--text);}
+  main{max-width:680px;margin:0 auto;padding:28px 16px 80px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:16px;}
+  .card-title{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:18px;font-family:'DM Mono',monospace;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+  .finp{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-family:'Syne',sans-serif;font-size:14px;background:var(--bg);color:var(--text);outline:none;transition:border .2s;}
+  .finp:focus{border-color:var(--text);}
+  .finp::placeholder{color:var(--muted);}
+  select.finp option{background:#fff;}
+  .form-row{display:flex;gap:10px;margin-top:10px;}
+  .add-btn{background:var(--text);color:var(--bg);border:none;padding:10px 26px;border-radius:8px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .2s;white-space:nowrap;}
+  .add-btn:hover{opacity:.82;}
+  .add-btn.cancel{background:var(--bg);color:var(--muted);border:1px solid var(--border);}
+  .expense-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);}
+  .expense-row:last-child{border-bottom:none;}
+  .cat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .exp-main{flex:1;min-width:0;}
+  .exp-label{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .exp-meta{font-size:11px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace;}
+  .exp-amount{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;}
+  .exp-who{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--bg);padding:2px 7px;border-radius:10px;border:1px solid var(--border);}
+  .icon-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;font-family:'DM Mono',monospace;transition:all .18s;}
+  .icon-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .icon-btn.edit:hover{border-color:#2563EB;color:#2563EB;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+  .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;}
+  .stat-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;}
+  .stat-label{font-size:10px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.08em;font-family:'DM Mono',monospace;}
+  .cat-bar-row{display:flex;align-items:center;gap:12px;margin-bottom:13px;}
+  .cat-bar-label{font-size:12px;width:130px;flex-shrink:0;display:flex;align-items:center;gap:6px;}
+  .cat-bar-track{flex:1;background:var(--bg);border-radius:4px;height:6px;overflow:hidden;}
+  .cat-bar-fill{height:100%;border-radius:4px;transition:width .5s ease;}
+  .cat-bar-amt{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);min-width:80px;text-align:right;}
+  .month-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+  .month-chip{padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;background:var(--surface);transition:all .18s;}
+  .month-chip.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+  .month-chip:hover:not(.active){border-color:var(--text);}
+  .loading{text-align:center;padding:40px;color:var(--muted);font-size:13px;font-family:'DM Mono',monospace;}
+  .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:10px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .empty{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+  #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:24px;font-size:13px;font-family:'DM Mono',monospace;opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:8px 16px 20px;gap:4px;z-index:100;}
+  .mobile-nav .nav-btn{flex:1;text-align:center;font-size:11px;padding:8px 4px;}
+  @media(max-width:500px){.stat-grid{grid-template-columns:repeat(2,1fr);}.form-grid{grid-template-columns:1fr;}nav{display:none;}.mobile-nav{display:flex !important;}}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <div class="setup-logo">spendlog <span style="color:var(--accent)">⬡</span></div>
+    <div class="setup-sub">shared expense tracker — google sheets backend</div>
+
+    <div class="setup-section">
+      <div class="setup-section-title">Step 1 — One-time Google Cloud setup</div>
+      <div class="step"><div class="step-num">1</div><div class="step-text">Go to <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → create a new project (top-left dropdown → New Project)</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">Enable the <a href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank">Google Sheets API</a> for that project</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">Go to <b>APIs & Services → OAuth consent screen</b> → choose <b>External</b> → fill App name (anything) → save. Under <b>Test users</b>, add both your email addresses.</div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-text">Go to <b>Credentials → Create Credentials → OAuth client ID</b> → choose <b>Web application</b> → under "Authorised JavaScript origins" add <b>null</b> (for local file use) and your site URL if hosting. Copy the <b>Client ID</b>.</div></div>
+    </div>
+
+    <div class="setup-section">
+      <div class="setup-section-title">Step 2 — Your Google Sheet</div>
+      <div class="step"><div class="step-num">5</div><div class="step-text">Go to <a href="https://sheets.new" target="_blank">sheets.new</a> → Row 1 headers exactly: <code style="background:#f0ede8;padding:2px 5px;border-radius:3px">Date | Amount | Category | Note | Who | ID</code></div></div>
+      <div class="step"><div class="step-num">6</div><div class="step-text">Share the sheet with <b>Anyone with the link → Editor</b>. Copy the Sheet ID from the URL: <code style="background:#f0ede8;padding:2px 5px;border-radius:3px">/spreadsheets/d/<b style="color:var(--accent)">SHEET_ID</b>/edit</code></div></div>
+    </div>
+
+    <div class="setup-section">
+      <div class="setup-section-title">Step 3 — Connect</div>
+      <input class="inp" id="client-id" placeholder="OAuth Client ID  (ends in .apps.googleusercontent.com)" />
+      <input class="inp" id="sheet-id" placeholder="Google Sheet ID" style="margin-top:8px"/>
+      <input class="inp" id="user-name" placeholder="Your name (e.g. Priya)" style="margin-top:8px"/>
+      <div class="info-box" style="margin-top:12px">These are saved in your browser only. The other person opens the same HTML file and enters the same Client ID + Sheet ID but their own name.</div>
+    </div>
+
+    <button class="setup-btn" onclick="initOAuth()">Sign in with Google →</button>
+    <div class="err-box" id="setup-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="logo">spend<span>log</span></div>
+    <nav>
+      <button class="nav-btn active" onclick="switchView('log')">Add</button>
+      <button class="nav-btn" onclick="switchView('month')">Monthly</button>
+      <button class="nav-btn" onclick="switchView('compare')">Compare</button>
+    </nav>
+    <div class="hdr-right">
+      <div class="user-badge" id="user-badge">—</div>
+      <button class="signout-btn" onclick="signOut()">sign out</button>
+    </div>
+  </header>
+  <div class="mobile-nav">
+    <button class="nav-btn active" onclick="switchView('log')">Add</button>
+    <button class="nav-btn" onclick="switchView('month')">Monthly</button>
+    <button class="nav-btn" onclick="switchView('compare')">Compare</button>
+  </div>
+  <main>
+    <div id="view-log">
+      <div class="card">
+        <div class="card-title" id="form-title">➕ New Expense</div>
+        <div class="form-grid">
+          <input class="finp" id="f-amount" type="number" placeholder="Amount (₹)" />
+          <input class="finp" id="f-date" type="date" />
+        </div>
+        <select class="finp" id="f-cat" style="margin-bottom:10px"></select>
+        <div class="form-row">
+          <input class="finp" id="f-note" placeholder="Note (optional)" style="flex:1" />
+          <button class="add-btn" id="submit-btn" onclick="submitExpense()">Add</button>
+          <button class="add-btn cancel" id="cancel-btn" onclick="cancelEdit()" style="display:none">Cancel</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+          <div class="card-title" style="margin-bottom:0">Recent Entries</div>
+          <button class="icon-btn" onclick="fetchData()">↻ refresh</button>
+        </div>
+        <div id="recent-list"><div class="loading"><div class="spinner"></div><br>Loading…</div></div>
+      </div>
+    </div>
+    <div id="view-month" style="display:none">
+      <div class="month-row" id="month-chips"></div>
+      <div class="stat-grid" id="month-stats"></div>
+      <div class="card"><div class="card-title">By Category</div><div id="cat-bars"></div></div>
+      <div class="card"><div class="card-title">Category Chart</div><canvas id="pie-chart" height="200"></canvas></div>
+      <div class="card"><div class="card-title">All Transactions</div><div id="month-list"></div></div>
+    </div>
+    <div id="view-compare" style="display:none">
+      <div class="card"><div class="card-title">Monthly Totals</div><canvas id="bar-chart" height="200"></canvas></div>
+      <div class="card"><div class="card-title">Month-by-Month Table</div><div id="compare-table" style="overflow-x:auto"></div></div>
+    </div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+const CATS=[
+  {name:"Food & Dining",color:"#C84B31",icon:"🍽️"},
+  {name:"Transport",color:"#E07C39",icon:"🚗"},
+  {name:"Shopping",color:"#D4AC0D",icon:"🛍️"},
+  {name:"Entertainment",color:"#2D6A4F",icon:"🎬"},
+  {name:"Health",color:"#52B788",icon:"💊"},
+  {name:"Utilities",color:"#2563EB",icon:"💡"},
+  {name:"Rent / EMI",color:"#7B2D8B",icon:"🏠"},
+  {name:"Groceries",color:"#F77F00",icon:"🛒"},
+  {name:"Other",color:"#9B9B9B",icon:"📦"},
+];
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const SCOPES="https://www.googleapis.com/auth/spreadsheets";
+
+let SHEET_ID="", CLIENT_ID="", USER="";
+let accessToken="";
+let allData=[];
+let editRowIndex=null;
+let pieInst=null, barInst=null;
+let selectedMonth="";
+let tokenClient=null;
+
+const fmt=n=>"₹"+Number(n).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const monthKey=d=>d.slice(0,7);
+const monthLabel=mk=>{const p=mk.split("-");return MONTHS[parseInt(p[1])-1]+" "+p[0].slice(2);};
+const catInfo=name=>CATS.find(c=>c.name===name)||CATS[8];
+
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2800);
+}
+
+function showErr(msg){
+  const e=document.getElementById("setup-err");
+  e.style.display="block";e.textContent=msg;
+}
+
+// ── OAuth ─────────────────────────────────────────────────────────────
+function initOAuth(){
+  CLIENT_ID=document.getElementById("client-id").value.trim();
+  SHEET_ID=document.getElementById("sheet-id").value.trim();
+  USER=document.getElementById("user-name").value.trim();
+  if(!CLIENT_ID||!SHEET_ID||!USER){showErr("Please fill in all three fields.");return;}
+
+  localStorage.setItem("sl_client",CLIENT_ID);
+  localStorage.setItem("sl_sheet",SHEET_ID);
+  localStorage.setItem("sl_user",USER);
+
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: onTokenReceived,
+  });
+  tokenClient.requestAccessToken({prompt:"consent"});
+}
+
+function onTokenReceived(resp){
+  if(resp.error){showErr("Auth error: "+resp.error);return;}
+  accessToken=resp.access_token;
+  // store expiry
+  localStorage.setItem("sl_token",accessToken);
+  localStorage.setItem("sl_token_exp", Date.now()+((resp.expires_in-60)*1000));
+  launchApp();
+}
+
+function ensureToken(){
+  return new Promise((resolve,reject)=>{
+    const exp=parseInt(localStorage.getItem("sl_token_exp")||"0");
+    if(accessToken && Date.now()<exp){resolve();return;}
+    if(!tokenClient){
+      // re-init silently
+      tokenClient=google.accounts.oauth2.initTokenClient({
+        client_id:CLIENT_ID,scope:SCOPES,
+        callback:(resp)=>{
+          if(resp.error){reject(resp.error);return;}
+          accessToken=resp.access_token;
+          localStorage.setItem("sl_token",accessToken);
+          localStorage.setItem("sl_token_exp",Date.now()+((resp.expires_in-60)*1000));
+          resolve();
+        }
+      });
+    }
+    tokenClient.requestAccessToken({prompt:""});
+  });
+}
+
+function signOut(){
+  google.accounts.oauth2.revoke(accessToken,()=>{});
+  accessToken="";
+  localStorage.removeItem("sl_token");
+  localStorage.removeItem("sl_token_exp");
+  document.getElementById("app").style.display="none";
+  document.getElementById("setup-screen").style.display="flex";
+}
+
+function launchApp(){
+  document.getElementById("setup-screen").style.display="none";
+  document.getElementById("app").style.display="block";
+  document.getElementById("user-badge").textContent=USER;
+  document.getElementById("f-date").value=todayStr();
+  const sel=document.getElementById("f-cat");
+  sel.innerHTML=CATS.map(c=>`<option value="${c.name}">${c.icon} ${c.name}</option>`).join("");
+  fetchData();
+}
+
+// ── Sheets API ────────────────────────────────────────────────────────
+const BASE=()=>`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+const authHdr=()=>({Authorization:`Bearer ${accessToken}`,"Content-Type":"application/json"});
+
+async function fetchData(){
+  try{
+    await ensureToken();
+    const res=await fetch(`${BASE()}/Sheet1!A:F`,{headers:authHdr()});
+    if(!res.ok)throw new Error((await res.json()).error?.message||"API error");
+    const d=await res.json();
+    const rows=(d.values||[]).slice(1);
+    allData=rows.map((r,i)=>({
+      rowIndex:i+2,date:r[0]||"",amount:parseFloat(r[1])||0,
+      category:r[2]||"Other",note:r[3]||"",who:r[4]||"",id:r[5]||""
+    })).filter(r=>r.date);
+    renderCurrentView();
+  }catch(e){
+    showToast("❌ "+e.message);
+    document.getElementById("recent-list").innerHTML=`<div class="empty" style="color:var(--accent)">Error: ${e.message}</div>`;
+  }
+}
+
+async function appendRow(vals){
+  await ensureToken();
+  const res=await fetch(`${BASE()}/Sheet1!A:F:append?valueInputOption=USER_ENTERED`,{
+    method:"POST",headers:authHdr(),body:JSON.stringify({values:[vals]})
+  });
+  if(!res.ok)throw new Error((await res.json()).error?.message);
+}
+
+async function updateRow(rowIndex,vals){
+  await ensureToken();
+  const res=await fetch(`${BASE()}/Sheet1!A${rowIndex}:F${rowIndex}?valueInputOption=USER_ENTERED`,{
+    method:"PUT",headers:authHdr(),body:JSON.stringify({values:[vals]})
+  });
+  if(!res.ok)throw new Error((await res.json()).error?.message);
+}
+
+async function deleteRow(rowIndex){
+  await ensureToken();
+  const res=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,{
+    method:"POST",headers:authHdr(),
+    body:JSON.stringify({requests:[{deleteDimension:{range:{sheetId:0,dimension:"ROWS",startIndex:rowIndex-1,endIndex:rowIndex}}}]})
+  });
+  if(!res.ok)throw new Error((await res.json()).error?.message);
+}
+
+// ── Form ──────────────────────────────────────────────────────────────
+async function submitExpense(){
+  const amt=parseFloat(document.getElementById("f-amount").value);
+  const dt=document.getElementById("f-date").value;
+  const cat=document.getElementById("f-cat").value;
+  const note=document.getElementById("f-note").value.trim();
+  if(!amt||amt<=0||!dt){showToast("Please enter amount and date");return;}
+  const btn=document.getElementById("submit-btn");
+  btn.textContent="…";btn.disabled=true;
+  try{
+    const id=Date.now().toString();
+    const vals=[dt,amt,cat,note,USER,id];
+    if(editRowIndex){await updateRow(editRowIndex,vals);showToast("✓ Updated");}
+    else{await appendRow(vals);showToast("✓ Added!");}
+    resetForm();await fetchData();
+  }catch(e){showToast("❌ "+e.message);}
+  btn.textContent=editRowIndex?"Update":"Add";btn.disabled=false;
+}
+
+function resetForm(){
+  document.getElementById("f-amount").value="";
+  document.getElementById("f-note").value="";
+  document.getElementById("f-date").value=todayStr();
+  document.getElementById("f-cat").value=CATS[0].name;
+  editRowIndex=null;
+  document.getElementById("submit-btn").textContent="Add";
+  document.getElementById("cancel-btn").style.display="none";
+  document.getElementById("form-title").textContent="➕ New Expense";
+}
+
+function cancelEdit(){resetForm();}
+
+function startEdit(rowIndex){
+  const e=allData.find(r=>r.rowIndex===rowIndex);if(!e)return;
+  document.getElementById("f-amount").value=e.amount;
+  document.getElementById("f-date").value=e.date;
+  document.getElementById("f-cat").value=e.category;
+  document.getElementById("f-note").value=e.note;
+  editRowIndex=rowIndex;
+  document.getElementById("submit-btn").textContent="Update";
+  document.getElementById("cancel-btn").style.display="";
+  document.getElementById("form-title").textContent="✏️ Edit Entry";
+  switchView("log");window.scrollTo({top:0,behavior:"smooth"});
+}
+
+async function deleteEntry(rowIndex){
+  if(!confirm("Delete this entry?"))return;
+  try{await deleteRow(rowIndex);showToast("✓ Deleted");await fetchData();}
+  catch(e){showToast("❌ "+e.message);}
+}
+
+// ── Views ─────────────────────────────────────────────────────────────
+let currentView="log";
+function switchView(v){
+  currentView=v;
+  ["log","month","compare"].forEach(x=>document.getElementById("view-"+x).style.display=x===v?"":"none");
+  document.querySelectorAll(".nav-btn").forEach((b,i)=>b.classList.toggle("active",["log","month","compare"][i]===v));
+  renderCurrentView();
+}
+function renderCurrentView(){
+  if(currentView==="log")renderLog();
+  else if(currentView==="month")renderMonth();
+  else renderCompare();
+}
+
+function renderLog(){
+  const list=document.getElementById("recent-list");
+  const recent=[...allData].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,40);
+  if(!recent.length){list.innerHTML=`<div class="empty">No entries yet. Add your first expense above.</div>`;return;}
+  list.innerHTML=recent.map(e=>{
+    const c=catInfo(e.category);
+    return `<div class="expense-row">
+      <div class="cat-dot" style="background:${c.color}"></div>
+      <div class="exp-main"><div class="exp-label">${e.note||e.category}</div><div class="exp-meta">${e.date} · ${e.category}</div></div>
+      <div class="exp-who">${e.who}</div>
+      <div class="exp-amount" style="color:${c.color}">${fmt(e.amount)}</div>
+      <button class="icon-btn edit" onclick="startEdit(${e.rowIndex})">edit</button>
+      <button class="icon-btn" onclick="deleteEntry(${e.rowIndex})">del</button>
+    </div>`;
+  }).join("");
+}
+
+function renderMonth(){
+  const months=[...new Set(allData.map(e=>monthKey(e.date)))].sort().reverse();
+  if(!selectedMonth||!months.includes(selectedMonth))selectedMonth=months[0]||monthKey(todayStr());
+  document.getElementById("month-chips").innerHTML=months.slice(0,8).map(m=>
+    `<div class="month-chip ${m===selectedMonth?"active":""}" onclick="selectMonth('${m}')">${monthLabel(m)}</div>`
+  ).join("");
+  const entries=allData.filter(e=>monthKey(e.date)===selectedMonth);
+  const total=entries.reduce((s,e)=>s+e.amount,0);
+  const people=[...new Set(allData.map(e=>e.who))].filter(Boolean);
+  const p1=people[0]||"P1",p2=people[1]||"P2";
+  const t1=entries.filter(e=>e.who===p1).reduce((s,e)=>s+e.amount,0);
+  const t2=entries.filter(e=>e.who===p2).reduce((s,e)=>s+e.amount,0);
+  document.getElementById("month-stats").innerHTML=`
+    <div class="stat-box"><div class="stat-val">${fmt(total)}</div><div class="stat-label">Total</div></div>
+    <div class="stat-box"><div class="stat-val">${fmt(t1)}</div><div class="stat-label">${p1}</div></div>
+    <div class="stat-box"><div class="stat-val">${fmt(t2)}</div><div class="stat-label">${p2}</div></div>`;
+  const catMap={};
+  entries.forEach(e=>{catMap[e.category]=(catMap[e.category]||0)+e.amount;});
+  const catData=CATS.map(c=>({...c,total:catMap[c.name]||0})).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+  document.getElementById("cat-bars").innerHTML=catData.map(c=>`
+    <div class="cat-bar-row">
+      <div class="cat-bar-label">${c.icon} ${c.name}</div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="background:${c.color};width:${total>0?c.total/total*100:0}%"></div></div>
+      <div class="cat-bar-amt">${fmt(c.total)}</div>
+    </div>`).join("")||`<div class="empty">No data</div>`;
+  if(pieInst){pieInst.destroy();pieInst=null;}
+  if(catData.length){
+    pieInst=new Chart(document.getElementById("pie-chart").getContext("2d"),{type:"doughnut",data:{
+      labels:catData.map(c=>c.name),
+      datasets:[{data:catData.map(c=>c.total),backgroundColor:catData.map(c=>c.color),borderWidth:2,borderColor:"#fff"}]
+    },options:{plugins:{legend:{position:"bottom",labels:{font:{family:"DM Mono",size:11},color:"#9A9088",boxWidth:10}}},cutout:"60%"}});
+  }
+  document.getElementById("month-list").innerHTML=[...entries].sort((a,b)=>b.date.localeCompare(a.date)).map(e=>{
+    const c=catInfo(e.category);
+    return `<div class="expense-row">
+      <div class="cat-dot" style="background:${c.color}"></div>
+      <div class="exp-main"><div class="exp-label">${e.note||e.category}</div><div class="exp-meta">${e.date}</div></div>
+      <div class="exp-who">${e.who}</div>
+      <div class="exp-amount" style="color:${c.color}">${fmt(e.amount)}</div>
+    </div>`;
+  }).join("")||`<div class="empty">No transactions.</div>`;
+}
+
+function selectMonth(m){selectedMonth=m;renderMonth();}
+
+function renderCompare(){
+  const months=[...new Set(allData.map(e=>monthKey(e.date)))].sort().slice(-6);
+  if(!months.length){document.getElementById("compare-table").innerHTML=`<div class="empty">Add expenses for at least 1 month to compare.</div>`;return;}
+  const totals=months.map(m=>({m,total:allData.filter(e=>monthKey(e.date)===m).reduce((s,e)=>s+e.amount,0)}));
+  if(barInst){barInst.destroy();barInst=null;}
+  barInst=new Chart(document.getElementById("bar-chart").getContext("2d"),{type:"bar",data:{
+    labels:totals.map(t=>monthLabel(t.m)),
+    datasets:[{label:"Total",data:totals.map(t=>t.total),backgroundColor:"#C84B31",borderRadius:6}]
+  },options:{plugins:{legend:{display:false}},scales:{
+    x:{ticks:{font:{family:"DM Mono",size:11},color:"#9A9088"},grid:{display:false}},
+    y:{ticks:{font:{family:"DM Mono",size:11},color:"#9A9088",callback:v=>`₹${v>=1000?(v/1000).toFixed(0)+"k":v}`},grid:{color:"#E8E3DB"}}
+  }}});
+  const usedCats=CATS.filter(c=>months.some(m=>allData.some(e=>monthKey(e.date)===m&&e.category===c.name)));
+  let html=`<table style="width:100%;border-collapse:collapse;font-size:12px;font-family:'DM Mono',monospace">
+    <thead><tr><th style="text-align:left;padding:6px 12px 6px 0;color:var(--muted)">Category</th>
+    ${months.map(m=>`<th style="text-align:right;padding:6px 0 6px 8px;color:var(--muted)">${monthLabel(m)}</th>`).join("")}
+    </tr></thead><tbody>`;
+  usedCats.forEach(c=>{
+    html+=`<tr><td style="padding:7px 12px 7px 0">${c.icon} ${c.name}</td>`;
+    months.forEach(m=>{
+      const v=allData.filter(e=>monthKey(e.date)===m&&e.category===c.name).reduce((s,e)=>s+e.amount,0);
+      html+=`<td style="text-align:right;padding:7px 0 7px 8px;color:${v>0?c.color:"var(--muted)"}">${v>0?fmt(v):"—"}</td>`;
+    });
+    html+="</tr>";
+  });
+  html+=`<tr style="border-top:2px solid var(--border)"><td style="padding:9px 12px 7px 0;font-weight:700">TOTAL</td>`;
+  months.forEach(m=>{
+    const v=allData.filter(e=>monthKey(e.date)===m).reduce((s,e)=>s+e.amount,0);
+    html+=`<td style="text-align:right;padding:9px 0 7px 8px;font-weight:700">${fmt(v)}</td>`;
+  });
+  html+="</tr></tbody></table>";
+  document.getElementById("compare-table").innerHTML=html;
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────
+(function init(){
+  const c=localStorage.getItem("sl_client");
+  const s=localStorage.getItem("sl_sheet");
+  const u=localStorage.getItem("sl_user");
+  const tok=localStorage.getItem("sl_token");
+  const exp=parseInt(localStorage.getItem("sl_token_exp")||"0");
+  if(c&&s&&u){
+    CLIENT_ID=c;SHEET_ID=s;USER=u;
+    document.getElementById("client-id").value=c;
+    document.getElementById("sheet-id").value=s;
+    document.getElementById("user-name").value=u;
+    if(tok&&Date.now()<exp){
+      accessToken=tok;
+      launchApp();
+    }
+  }
+})();
+</script>
+</body>
+</html>
