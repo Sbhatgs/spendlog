@@ -234,12 +234,8 @@ function initOAuth(){
   CLIENT_ID=document.getElementById("client-id").value.trim();
   SHEET_ID=document.getElementById("sheet-id").value.trim();
   USER=document.getElementById("user-name").value.trim();
-  if(!CLIENT_ID||!SHEET_ID||!USER){showErr("Please fill in all three fields.");return;}
-
-  localStorage.setItem("sl_client",CLIENT_ID);
-  localStorage.setItem("sl_sheet",SHEET_ID);
+  if(!USER){showErr("Please enter your name.");return;}
   localStorage.setItem("sl_user",USER);
-
   tokenClient=google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
