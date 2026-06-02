@@ -512,14 +512,17 @@ function renderCompare(){
   const u=localStorage.getItem("sl_user");
   const tok=localStorage.getItem("sl_token");
   const exp=parseInt(localStorage.getItem("sl_token_exp")||"0");
-  if(c&&s&&u){
-    CLIENT_ID=c;SHEET_ID=s;USER=u;
-    document.getElementById("client-id").value=c;
-    document.getElementById("sheet-id").value=s;
-    document.getElementById("user-name").value=u;
+  CLIENT_ID=c; SHEET_ID=s;
+  if(u){
+    USER=u;
     if(tok&&Date.now()<exp){
       accessToken=tok;
       launchApp();
+    } else {
+      // token expired, re-auth silently
+      document.getElementById("setup-screen").style.display="flex";
+      document.getElementById("client-id").value=c;
+      document.getElementById("sheet-id").value=s;
     }
   }
 })();
