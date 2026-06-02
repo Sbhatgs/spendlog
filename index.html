@@ -3,41 +3,24 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>spendlog — shared expense tracker</title>
+<title>spendlog</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
-  :root {
-    --bg:#F7F4EF;--surface:#fff;--border:#E8E3DB;--text:#1A1612;
-    --muted:#9A9088;--accent:#C84B31;--radius:12px;
-  }
+  :root{--bg:#F7F4EF;--surface:#fff;--border:#E8E3DB;--text:#1A1612;--muted:#9A9088;--accent:#C84B31;--radius:12px;}
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-
-  /* ── Setup ── */
   #setup-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .setup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;max-width:540px;width:100%;box-shadow:0 4px 40px rgba(0,0,0,.06);}
+  .setup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;max-width:400px;width:100%;box-shadow:0 4px 40px rgba(0,0,0,.06);}
   .setup-logo{font-size:28px;font-weight:800;letter-spacing:-.04em;margin-bottom:6px;}
   .setup-sub{font-size:13px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:28px;}
-  .setup-section{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
-  .setup-section-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:14px;}
-  .step{display:flex;gap:12px;margin-bottom:14px;}
-  .step:last-child{margin-bottom:0;}
-  .step-num{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
-  .step-text{font-size:12px;color:var(--muted);line-height:1.7;flex:1;}
-  .step-text a{color:var(--accent);}
-  .step-text b{color:var(--text);}
-  .inp{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;background:#fff;color:var(--text);outline:none;transition:border .2s;margin-top:8px;}
+  .inp{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:8px;font-family:'Syne',sans-serif;font-size:14px;background:var(--bg);color:var(--text);outline:none;transition:border .2s;margin-bottom:12px;}
   .inp:focus{border-color:var(--accent);}
   .inp::placeholder{color:var(--muted);}
-  .setup-btn{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:8px;}
+  .setup-btn{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:4px;}
   .setup-btn:hover{opacity:.88;}
   .err-box{margin-top:12px;padding:10px 14px;background:#FEE2E2;border-radius:8px;font-size:12px;color:#991B1B;display:none;}
-  .info-box{padding:10px 14px;background:#EFF6FF;border-radius:8px;font-size:11px;color:#1D4ED8;font-family:'DM Mono',monospace;line-height:1.6;margin-top:8px;}
-  #google-signin-btn{margin-top:12px;}
-
-  /* ── App ── */
   #app{display:none;}
   header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;height:58px;}
   .logo{font-size:20px;font-weight:800;letter-spacing:-.04em;}
@@ -99,40 +82,18 @@
 </head>
 <body>
 
-<!-- SETUP -->
+<!-- ── SETUP SCREEN: only asks for name ── -->
 <div id="setup-screen">
   <div class="setup-card">
     <div class="setup-logo">spendlog <span style="color:var(--accent)">⬡</span></div>
-    <div class="setup-sub">shared expense tracker — google sheets backend</div>
-
-    <div class="setup-section">
-      <div class="setup-section-title">Step 1 — One-time Google Cloud setup</div>
-      <div class="step"><div class="step-num">1</div><div class="step-text">Go to <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → create a new project (top-left dropdown → New Project)</div></div>
-      <div class="step"><div class="step-num">2</div><div class="step-text">Enable the <a href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank">Google Sheets API</a> for that project</div></div>
-      <div class="step"><div class="step-num">3</div><div class="step-text">Go to <b>APIs & Services → OAuth consent screen</b> → choose <b>External</b> → fill App name (anything) → save. Under <b>Test users</b>, add both your email addresses.</div></div>
-      <div class="step"><div class="step-num">4</div><div class="step-text">Go to <b>Credentials → Create Credentials → OAuth client ID</b> → choose <b>Web application</b> → under "Authorised JavaScript origins" add <b>null</b> (for local file use) and your site URL if hosting. Copy the <b>Client ID</b>.</div></div>
-    </div>
-
-    <div class="setup-section">
-      <div class="setup-section-title">Step 2 — Your Google Sheet</div>
-      <div class="step"><div class="step-num">5</div><div class="step-text">Go to <a href="https://sheets.new" target="_blank">sheets.new</a> → Row 1 headers exactly: <code style="background:#f0ede8;padding:2px 5px;border-radius:3px">Date | Amount | Category | Note | Who | ID</code></div></div>
-      <div class="step"><div class="step-num">6</div><div class="step-text">Share the sheet with <b>Anyone with the link → Editor</b>. Copy the Sheet ID from the URL: <code style="background:#f0ede8;padding:2px 5px;border-radius:3px">/spreadsheets/d/<b style="color:var(--accent)">SHEET_ID</b>/edit</code></div></div>
-    </div>
-
-    <div class="setup-section">
-      <div class="setup-section-title">Step 3 — Connect</div>
-      <input type="hidden" id="client-id" />
-      <input type="hidden" id="sheet-id" />
-      <input class="inp" id="user-name" placeholder="Your name (e.g. Priya)" />
-      <div class="info-box" style="margin-top:12px">These are saved in your browser only. The other person opens the same HTML file and enters the same Client ID + Sheet ID but their own name.</div>
-    </div>
-
+    <div class="setup-sub">shared expense tracker</div>
+    <input class="inp" id="user-name" placeholder="Your name (e.g. Priya)" />
     <button class="setup-btn" onclick="initOAuth()">Sign in with Google →</button>
     <div class="err-box" id="setup-err"></div>
   </div>
 </div>
 
-<!-- APP -->
+<!-- ── MAIN APP ── -->
 <div id="app">
   <header>
     <div class="logo">spend<span>log</span></div>
@@ -190,6 +151,13 @@
 <div id="toast"></div>
 
 <script>
+// ╔══════════════════════════════════════════╗
+// ║  PASTE YOUR IDs HERE                     ║
+// ╚══════════════════════════════════════════╝
+const CLIENT_ID = "YOUR_CLIENT_ID_HERE";   // e.g. "123456789-abc.apps.googleusercontent.com"
+const SHEET_ID  = "YOUR_SHEET_ID_HERE";    // e.g. "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+// ════════════════════════════════════════════
+
 const CATS=[
   {name:"Food & Dining",color:"#C84B31",icon:"🍽️"},
   {name:"Transport",color:"#E07C39",icon:"🚗"},
@@ -204,11 +172,11 @@ const CATS=[
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const SCOPES="https://www.googleapis.com/auth/spreadsheets";
 
-let SHEET_ID="", CLIENT_ID="", USER="";
+let USER="";
 let accessToken="";
 let allData=[];
 let editRowIndex=null;
-let pieInst=null, barInst=null;
+let pieInst=null,barInst=null;
 let selectedMonth="";
 let tokenClient=null;
 
@@ -223,23 +191,20 @@ function showToast(msg){
   t.textContent=msg;t.classList.add("show");
   setTimeout(()=>t.classList.remove("show"),2800);
 }
-
 function showErr(msg){
   const e=document.getElementById("setup-err");
   e.style.display="block";e.textContent=msg;
 }
 
-// ── OAuth ─────────────────────────────────────────────────────────────
+// ── OAuth ──────────────────────────────────────────────────────────────
 function initOAuth(){
-  CLIENT_ID=document.getElementById("client-id").value.trim();
-  SHEET_ID=document.getElementById("sheet-id").value.trim();
   USER=document.getElementById("user-name").value.trim();
   if(!USER){showErr("Please enter your name.");return;}
   localStorage.setItem("sl_user",USER);
   tokenClient=google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: onTokenReceived,
+    client_id:CLIENT_ID,
+    scope:SCOPES,
+    callback:onTokenReceived,
   });
   tokenClient.requestAccessToken({prompt:"consent"});
 }
@@ -247,18 +212,16 @@ function initOAuth(){
 function onTokenReceived(resp){
   if(resp.error){showErr("Auth error: "+resp.error);return;}
   accessToken=resp.access_token;
-  // store expiry
   localStorage.setItem("sl_token",accessToken);
-  localStorage.setItem("sl_token_exp", Date.now()+((resp.expires_in-60)*1000));
+  localStorage.setItem("sl_token_exp",Date.now()+((resp.expires_in-60)*1000));
   launchApp();
 }
 
 function ensureToken(){
   return new Promise((resolve,reject)=>{
     const exp=parseInt(localStorage.getItem("sl_token_exp")||"0");
-    if(accessToken && Date.now()<exp){resolve();return;}
+    if(accessToken&&Date.now()<exp){resolve();return;}
     if(!tokenClient){
-      // re-init silently
       tokenClient=google.accounts.oauth2.initTokenClient({
         client_id:CLIENT_ID,scope:SCOPES,
         callback:(resp)=>{
@@ -279,6 +242,7 @@ function signOut(){
   accessToken="";
   localStorage.removeItem("sl_token");
   localStorage.removeItem("sl_token_exp");
+  localStorage.removeItem("sl_user");
   document.getElementById("app").style.display="none";
   document.getElementById("setup-screen").style.display="flex";
 }
@@ -293,7 +257,7 @@ function launchApp(){
   fetchData();
 }
 
-// ── Sheets API ────────────────────────────────────────────────────────
+// ── Sheets API ─────────────────────────────────────────────────────────
 const BASE=()=>`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
 const authHdr=()=>({Authorization:`Bearer ${accessToken}`,"Content-Type":"application/json"});
 
@@ -340,7 +304,7 @@ async function deleteRow(rowIndex){
   if(!res.ok)throw new Error((await res.json()).error?.message);
 }
 
-// ── Form ──────────────────────────────────────────────────────────────
+// ── Form ───────────────────────────────────────────────────────────────
 async function submitExpense(){
   const amt=parseFloat(document.getElementById("f-amount").value);
   const dt=document.getElementById("f-date").value;
@@ -350,8 +314,7 @@ async function submitExpense(){
   const btn=document.getElementById("submit-btn");
   btn.textContent="…";btn.disabled=true;
   try{
-    const id=Date.now().toString();
-    const vals=[dt,amt,cat,note,USER,id];
+    const vals=[dt,amt,cat,note,USER,Date.now().toString()];
     if(editRowIndex){await updateRow(editRowIndex,vals);showToast("✓ Updated");}
     else{await appendRow(vals);showToast("✓ Added!");}
     resetForm();await fetchData();
@@ -391,7 +354,7 @@ async function deleteEntry(rowIndex){
   catch(e){showToast("❌ "+e.message);}
 }
 
-// ── Views ─────────────────────────────────────────────────────────────
+// ── Views ──────────────────────────────────────────────────────────────
 let currentView="log";
 function switchView(v){
   currentView=v;
@@ -469,7 +432,10 @@ function selectMonth(m){selectedMonth=m;renderMonth();}
 
 function renderCompare(){
   const months=[...new Set(allData.map(e=>monthKey(e.date)))].sort().slice(-6);
-  if(!months.length){document.getElementById("compare-table").innerHTML=`<div class="empty">Add expenses for at least 1 month to compare.</div>`;return;}
+  if(!months.length){
+    document.getElementById("compare-table").innerHTML=`<div class="empty">Add expenses for at least 1 month to compare.</div>`;
+    return;
+  }
   const totals=months.map(m=>({m,total:allData.filter(e=>monthKey(e.date)===m).reduce((s,e)=>s+e.amount,0)}));
   if(barInst){barInst.destroy();barInst=null;}
   barInst=new Chart(document.getElementById("bar-chart").getContext("2d"),{type:"bar",data:{
@@ -501,24 +467,20 @@ function renderCompare(){
   document.getElementById("compare-table").innerHTML=html;
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────
+// ── Boot ───────────────────────────────────────────────────────────────
 (function init(){
-  const c="762887144071-p7f30q948ndtrkh47htcic6d32h5jruf.apps.googleusercontent.com";
-  const s="17sqhPOUm3uPAbQ8kJQVdCrcByFEQa7bamn-4MHj_rbg";
   const u=localStorage.getItem("sl_user");
   const tok=localStorage.getItem("sl_token");
   const exp=parseInt(localStorage.getItem("sl_token_exp")||"0");
-  CLIENT_ID=c; SHEET_ID=s;
   if(u){
     USER=u;
     if(tok&&Date.now()<exp){
       accessToken=tok;
       launchApp();
-    } else {
-      // token expired, re-auth silently
-      document.getElementById("setup-screen").style.display="flex";
-      document.getElementById("client-id").value=c;
-      document.getElementById("sheet-id").value=s;
+    }
+    // token expired — show setup screen pre-filled with name
+    else{
+      document.getElementById("user-name").value=u;
     }
   }
 })();
