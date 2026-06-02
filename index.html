@@ -480,8 +480,21 @@ function renderCompare(){
     }
     // token expired — show setup screen pre-filled with name
     else{
-      document.getElementById("user-name").value=u;
+  USER=u;
+  document.getElementById("user-name").value=u;
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,
+    scope:SCOPES,
+    callback:(resp)=>{
+      if(resp.error){document.getElementById("user-name").value=u;return;}
+      accessToken=resp.access_token;
+      localStorage.setItem("sl_token",accessToken);
+      localStorage.setItem("sl_token_exp",Date.now()+((resp.expires_in-60)*1000));
+      launchApp();
     }
+  });
+  tokenClient.requestAccessToken({prompt:""});
+      }
   }
 })();
 </script>
