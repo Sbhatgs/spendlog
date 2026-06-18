@@ -206,7 +206,7 @@ function initOAuth(){
     scope:SCOPES,
     callback:onTokenReceived,
   });
-  tokenClient.requestAccessToken({prompt:"consent"});
+  tokenClient.requestAccessToken({prompt:""});
 }
 
 function onTokenReceived(resp){
