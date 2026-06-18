@@ -409,15 +409,38 @@ function renderMonth(){
     `<div class="month-chip ${m===selectedMonth?"active":""}" onclick="selectMonth('${m}')">${monthLabel(m)}</div>`
   ).join("");
   const entries=allData.filter(e=>monthKey(e.date)===selectedMonth);
-  const total=entries.reduce((s,e)=>s+e.amount,0);
-  const people=[...new Set(allData.map(e=>e.who))].filter(Boolean);
-  const p1=people[0]||"P1",p2=people[1]||"P2";
-  const t1=entries.filter(e=>e.who===p1).reduce((s,e)=>s+e.amount,0);
-  const t2=entries.filter(e=>e.who===p2).reduce((s,e)=>s+e.amount,0);
-  document.getElementById("month-stats").innerHTML=`
-    <div class="stat-box"><div class="stat-val">${fmt(total)}</div><div class="stat-label">Total</div></div>
-    <div class="stat-box"><div class="stat-val">${fmt(t1)}</div><div class="stat-label">${p1}</div></div>
-    <div class="stat-box"><div class="stat-val">${fmt(t2)}</div><div class="stat-label">${p2}</div></div>`;
+  const total = entries.reduce(
+  (s, e) => s + Number(e.amount || 0),
+  0
+  );
+
+// Calculate totals for all people in this month
+  const personTotals = {};
+
+  entries.forEach(e => {
+  const who = (e.who || "Unknown").trim();
+  personTotals[who] =
+    (personTotals[who] || 0) + Number(e.amount || 0);
+  });
+
+  // Build stat boxes dynamically
+  const personStats = Object.entries(personTotals)
+  .sort((a, b) => b[1] - a[1])
+  .map(([name, amount]) => `
+    <div class="stat-box">
+      <div class="stat-val">${fmt(amount)}</div>
+      <div class="stat-label">${name}</div>
+    </div>
+  `)
+  .join("");
+
+  document.getElementById("month-stats").innerHTML = `
+  <div class="stat-box">
+    <div class="stat-val">${fmt(total)}</div>
+    <div class="stat-label">Total</div>
+  </div>
+  ${personStats}
+`;
   const catMap={};
   entries.forEach(e=>{catMap[e.category]=(catMap[e.category]||0)+e.amount;});
   const catData=CATS.map(c=>({...c,total:catMap[c.name]||0})).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
