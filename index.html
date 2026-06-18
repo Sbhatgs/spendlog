@@ -121,6 +121,13 @@
           <input class="finp" id="f-date" type="date" />
         </div>
         <select class="finp" id="f-cat" style="margin-bottom:10px"></select>
+        <select class="finp" id="f-mode" style="margin-bottom:10px">
+          <option value="UPI">💸 UPI</option>
+          <option value="Cash">💵 Cash</option>
+          <option value="Credit Card">💳 Credit Card</option>
+          <option value="Debit Card">🏧 Debit Card</option>
+          <option value="Net Banking">🏦 Net Banking</option>
+        </select>
         <div class="form-row">
           <input class="finp" id="f-note" placeholder="Note (optional)" style="flex:1" />
           <button class="add-btn" id="submit-btn" onclick="submitExpense()">Add</button>
@@ -160,6 +167,7 @@ const SHEET_ID  = "17sqhPOUm3uPAbQ8kJQVdCrcByFEQa7bamn-4MHj_rbg";    // e.g. "1B
 
 const CATS=[
   {name:"Food & Dining",color:"#C84B31",icon:"🍽️"},
+  {name:"Office/Work",color:"#C84B31", icon:"🍽️"}
   {name:"Transport",color:"#E07C39",icon:"🚗"},
   {name:"Shopping",color:"#D4AC0D",icon:"🛍️"},
   {name:"Entertainment",color:"#2D6A4F",icon:"🎬"},
@@ -167,7 +175,11 @@ const CATS=[
   {name:"Utilities",color:"#2563EB",icon:"💡"},
   {name:"Rent / EMI",color:"#7B2D8B",icon:"🏠"},
   {name:"Groceries",color:"#F77F00",icon:"🛒"},
-  {name:"Other",color:"#9B9B9B",icon:"📦"},
+  {name:"Travel",color:"#0EA5E9",icon:"✈️"},
+  {name:"Personal Care",color:"#14B8A6",icon:"💇"}
+  {name:"Home & Household",color:"#2D6A4F",icon:"🏠"},
+  {name:"Other",color:"#9B9B9B",icon:"📦"}
+  
 ];
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const SCOPES="https://www.googleapis.com/auth/spreadsheets";
@@ -314,7 +326,8 @@ async function submitExpense(){
   const btn=document.getElementById("submit-btn");
   btn.textContent="…";btn.disabled=true;
   try{
-    const vals=[dt,amt,cat,note,USER,Date.now().toString()];
+    const mode=document.getElementById("f-mode").value;
+    const vals=[dt,amt,cat,note,USER,Date.now().toString(),mode];
     if(editRowIndex){await updateRow(editRowIndex,vals);showToast("✓ Updated");}
     else{await appendRow(vals);showToast("✓ Added!");}
     resetForm();await fetchData();
@@ -327,6 +340,7 @@ function resetForm(){
   document.getElementById("f-note").value="";
   document.getElementById("f-date").value=todayStr();
   document.getElementById("f-cat").value=CATS[0].name;
+  document.getElementById("f-mode").value="UPI";
   editRowIndex=null;
   document.getElementById("submit-btn").textContent="Add";
   document.getElementById("cancel-btn").style.display="none";
