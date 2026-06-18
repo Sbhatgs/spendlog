@@ -418,7 +418,7 @@ function renderMonth(){
   const personTotals = {};
 
   entries.forEach(e => {
-  const who = (e.who || "Unknown").trim();
+  const who = (e.who || "Unknown").trim().toLowerCase();
   personTotals[who] =
     (personTotals[who] || 0) + Number(e.amount || 0);
   });
