@@ -101,6 +101,7 @@
       <button class="nav-btn active" onclick="switchView('log')">Add</button>
       <button class="nav-btn" onclick="switchView('month')">Monthly</button>
       <button class="nav-btn" onclick="switchView('compare')">Compare</button>
+      <button class="nav-btn" onclick="switchView('payment')">Payment</button>
     </nav>
     <div class="hdr-right">
       <div class="user-badge" id="user-badge">—</div>
@@ -152,6 +153,21 @@
     <div id="view-compare" style="display:none">
       <div class="card"><div class="card-title">Monthly Totals</div><canvas id="bar-chart" height="200"></canvas></div>
       <div class="card"><div class="card-title">Month-by-Month Table</div><div id="compare-table" style="overflow-x:auto"></div></div>
+    </div>
+    <div id="view-payment" style="display:none">
+      <div class="month-row" id="payment-month-chips"></div>
+      <div class="card">
+        <div class="card-title">Spend by Payment Mode</div>
+        <div id="payment-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Payment Mode Chart</div>
+        <canvas id="payment-pie-chart" height="200"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Transactions by Mode</div>
+        <div id="payment-list"></div>
+      </div>
     </div>
   </main>
 </div>
@@ -279,14 +295,14 @@ const authHdr=()=>({Authorization:`Bearer ${accessToken}`,"Content-Type":"applic
 async function fetchData(){
   try{
     await ensureToken();
-    const res=await fetch(`${BASE()}/Sheet1!A:F`,{headers:authHdr()});
+    const res=await fetch(`${BASE()}/Sheet1!A:G`,{headers:authHdr()});
     if(!res.ok)throw new Error((await res.json()).error?.message||"API error");
     const d=await res.json();
     const rows=(d.values||[]).slice(1);
     allData=rows.map((r,i)=>({
-      rowIndex:i+2,date:r[0]||"",amount:parseFloat(r[1])||0,
-      category:r[2]||"Other",note:r[3]||"",who:r[4]||"",id:r[5]||""
-    })).filter(r=>r.date);
+  rowIndex:i+2,date:r[0]||"",amount:parseFloat(r[1])||0,
+  category:r[2]||"Other",note:r[3]||"",who:r[4]||"",id:r[5]||"",mode:r[6]||"UPI"
+})).filter(r=>r.date);
     renderCurrentView();
   }catch(e){
     showToast("❌ "+e.message);
@@ -296,7 +312,7 @@ async function fetchData(){
 
 async function appendRow(vals){
   await ensureToken();
-  const res=await fetch(`${BASE()}/Sheet1!A:F:append?valueInputOption=USER_ENTERED`,{
+  const res=await fetch(`${BASE()}/Sheet1!A:G:append?valueInputOption=USER_ENTERED`,{
     method:"POST",headers:authHdr(),body:JSON.stringify({values:[vals]})
   });
   if(!res.ok)throw new Error((await res.json()).error?.message);
@@ -375,14 +391,15 @@ async function deleteEntry(rowIndex){
 let currentView="log";
 function switchView(v){
   currentView=v;
-  ["log","month","compare"].forEach(x=>document.getElementById("view-"+x).style.display=x===v?"":"none");
-  document.querySelectorAll(".nav-btn").forEach((b,i)=>b.classList.toggle("active",["log","month","compare"][i]===v));
+  ["log","month","compare","payment"].forEach(x=>document.getElementById("view-"+x).style.display=x===v?"":"none");
+document.querySelectorAll(".nav-btn").forEach((b,i)=>b.classList.toggle("active",["log","month","compare","payment"][i]===v));
   renderCurrentView();
 }
 function renderCurrentView(){
   if(currentView==="log")renderLog();
   else if(currentView==="month")renderMonth();
-  else renderCompare();
+  else if(currentView==="compare")renderCompare();
+  else if(currentView==="payment")renderPayment();
 }
 
 function renderLog(){
@@ -506,6 +523,79 @@ function renderCompare(){
   html+="</tr></tbody></table>";
   document.getElementById("compare-table").innerHTML=html;
 }
+
+let selectedPaymentMonth="";
+let paymentPieInst=null;
+
+const PAYMENT_COLORS={
+  "UPI":"#C84B31",
+  "Cash":"#2D6A4F",
+  "Credit Card":"#2563EB",
+  "Debit Card":"#D4AC0D",
+  "Net Banking":"#7B2D8B",
+};
+
+function renderPayment(){
+  const months=[...new Set(allData.map(e=>monthKey(e.date)))].sort().reverse();
+  if(!selectedPaymentMonth||!months.includes(selectedPaymentMonth))selectedPaymentMonth=months[0]||monthKey(todayStr());
+
+  // Month chips
+  document.getElementById("payment-month-chips").innerHTML=months.slice(0,8).map(m=>
+    `<div class="month-chip ${m===selectedPaymentMonth?"active":""}" onclick="selectPaymentMonth('${m}')">${monthLabel(m)}</div>`
+  ).join("");
+
+  const entries=allData.filter(e=>monthKey(e.date)===selectedPaymentMonth);
+  const total=entries.reduce((s,e)=>s+e.amount,0);
+
+  // Group by payment mode
+  const modeMap={};
+  entries.forEach(e=>{
+    const mode=e.mode||"UPI";
+    modeMap[mode]=(modeMap[mode]||0)+e.amount;
+  });
+  const modeData=Object.entries(modeMap)
+    .map(([name,total])=>({name,total,color:PAYMENT_COLORS[name]||"#9B9B9B"}))
+    .sort((a,b)=>b.total-a.total);
+
+  // Bars
+  document.getElementById("payment-bars").innerHTML=modeData.length?modeData.map(m=>`
+    <div class="cat-bar-row">
+      <div class="cat-bar-label" style="width:140px">${m.name}</div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="background:${m.color};width:${total>0?m.total/total*100:0}%"></div></div>
+      <div class="cat-bar-amt">${fmt(m.total)} <span style="color:var(--muted);font-size:10px">(${total>0?(m.total/total*100).toFixed(0):0}%)</span></div>
+    </div>`).join(""):`<div class="empty">No data for this month.</div>`;
+
+  // Pie chart
+  if(paymentPieInst){paymentPieInst.destroy();paymentPieInst=null;}
+  if(modeData.length){
+    paymentPieInst=new Chart(document.getElementById("payment-pie-chart").getContext("2d"),{type:"doughnut",data:{
+      labels:modeData.map(m=>m.name),
+      datasets:[{data:modeData.map(m=>m.total),backgroundColor:modeData.map(m=>m.color),borderWidth:2,borderColor:"#fff"}]
+    },options:{plugins:{legend:{position:"bottom",labels:{font:{family:"DM Mono",size:11},color:"#9A9088",boxWidth:10}}},cutout:"60%"}});
+  }
+
+  // Transactions grouped by mode
+  document.getElementById("payment-list").innerHTML=modeData.length?modeData.map(m=>{
+    const modeEntries=entries.filter(e=>(e.mode||"UPI")===m.name).sort((a,b)=>b.date.localeCompare(a.date));
+    return `
+      <div style="margin-bottom:18px">
+        <div style="font-size:11px;font-weight:700;color:${m.color};letter-spacing:.08em;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ${m.color}22">
+          ${m.name} — ${fmt(m.total)}
+        </div>
+        ${modeEntries.map(e=>{
+          const c=catInfo(e.category);
+          return `<div class="expense-row">
+            <div class="cat-dot" style="background:${c.color}"></div>
+            <div class="exp-main"><div class="exp-label">${e.note||e.category}</div><div class="exp-meta">${e.date} · ${e.category}</div></div>
+            <div class="exp-who">${e.who}</div>
+            <div class="exp-amount" style="color:${c.color}">${fmt(e.amount)}</div>
+          </div>`;
+        }).join("")}
+      </div>`;
+  }).join(""):`<div class="empty">No transactions this month.</div>`;
+}
+
+function selectPaymentMonth(m){selectedPaymentMonth=m;renderPayment();}
 
 // ── Boot ───────────────────────────────────────────────────────────────
 (function init(){
