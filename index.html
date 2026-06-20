@@ -8,6 +8,15 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
+  #pin-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .pin-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;max-width:340px;width:100%;box-shadow:0 4px 40px rgba(0,0,0,.06);text-align:center;}
+  .pin-logo{font-size:28px;font-weight:800;letter-spacing:-.04em;margin-bottom:6px;}
+  .pin-sub{font-size:13px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:28px;}
+  .pin-inp{width:100%;padding:14px;border:1px solid var(--border);border-radius:8px;font-family:'DM Mono',monospace;font-size:24px;text-align:center;letter-spacing:.3em;background:var(--bg);color:var(--text);outline:none;margin-bottom:12px;}
+  .pin-inp:focus{border-color:var(--accent);}
+  .pin-btn{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;}
+  .pin-btn:hover{opacity:.88;}
+  .pin-err{margin-top:12px;padding:10px;background:#FEE2E2;border-radius:8px;font-size:12px;color:#991B1B;display:none;}
   :root{--bg:#F7F4EF;--surface:#fff;--border:#E8E3DB;--text:#1A1612;--muted:#9A9088;--accent:#C84B31;--radius:12px;}
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
@@ -81,9 +90,18 @@
 </style>
 </head>
 <body>
+  <div id="pin-screen">
+    <div class="pin-card">
+      <div class="pin-logo">spendlog <span style="color:var(--accent)">⬡</span></div>
+      <div class="pin-sub">enter PIN to continue</div>
+      <input class="pin-inp" id="pin-input" type="password" maxlength="4" placeholder="••••" onkeydown="if(event.key==='Enter')checkPIN()" />
+      <button class="pin-btn" onclick="checkPIN()">Unlock →</button>
+      <div class="pin-err" id="pin-err">Incorrect PIN. Try again.</div>
+    </div>
+  </div>
 
 <!-- ── SETUP SCREEN: only asks for name ── -->
-<div id="setup-screen">
+<div id="setup-screen" style="display:none">
   <div class="setup-card">
     <div class="setup-logo">spendlog <span style="color:var(--accent)">⬡</span></div>
     <div class="setup-sub">shared expense tracker</div>
@@ -94,7 +112,7 @@
 </div>
 
 <!-- ── MAIN APP ── -->
-<div id="app">
+<div id="app" style="display:none">
   <header>
     <div class="logo">spend<span>log</span></div>
     <nav>
@@ -174,6 +192,39 @@
 <div id="toast"></div>
 
 <script>
+  const APP_PIN = "2124"; // 🔴 change this to your PIN
+
+function checkPIN(){
+  const entered = document.getElementById("pin-input").value.trim();
+  if(entered === APP_PIN){
+    localStorage.setItem("sl_pin", APP_PIN);
+    document.getElementById("pin-screen").style.display = "none";
+    bootApp();
+  } else {
+    const err = document.getElementById("pin-err");
+    err.style.display = "block";
+    document.getElementById("pin-input").value = "";
+    setTimeout(()=>err.style.display="none", 2000);
+  }
+}
+
+function bootApp(){
+  const u = localStorage.getItem("sl_user");
+  const tok = localStorage.getItem("sl_token");
+  const exp = parseInt(localStorage.getItem("sl_token_exp")||"0");
+  if(u){
+    USER=u;
+    if(tok&&Date.now()<exp){
+      accessToken=tok;
+      launchApp();
+    } else {
+      document.getElementById("user-name").value=u;
+      document.getElementById("setup-screen").style.display="flex";
+    }
+  } else {
+    document.getElementById("setup-screen").style.display="flex";
+  }
+}
 // ╔══════════════════════════════════════════╗
 // ║  PASTE YOUR IDs HERE                     ║
 // ╚══════════════════════════════════════════╝
@@ -598,7 +649,8 @@ function renderPayment(){
 function selectPaymentMonth(m){selectedPaymentMonth=m;renderPayment();}
 
 // ── Boot ───────────────────────────────────────────────────────────────
-(function init(){
+// ── Boot ───────────────────────────────────────────────────────────────
+function bootApp(){
   const u=localStorage.getItem("sl_user");
   const tok=localStorage.getItem("sl_token");
   const exp=parseInt(localStorage.getItem("sl_token_exp")||"0");
@@ -608,23 +660,32 @@ function selectPaymentMonth(m){selectedPaymentMonth=m;renderPayment();}
       accessToken=tok;
       launchApp();
     }
-    // token expired — show setup screen pre-filled with name
     else{
-  USER=u;
-  document.getElementById("user-name").value=u;
-  tokenClient=google.accounts.oauth2.initTokenClient({
-    client_id:CLIENT_ID,
-    scope:SCOPES,
-    callback:(resp)=>{
-      if(resp.error){document.getElementById("user-name").value=u;return;}
-      accessToken=resp.access_token;
-      localStorage.setItem("sl_token",accessToken);
-      localStorage.setItem("sl_token_exp",Date.now()+((resp.expires_in-60)*1000));
-      launchApp();
+      USER=u;
+      document.getElementById("user-name").value=u;
+      tokenClient=google.accounts.oauth2.initTokenClient({
+        client_id:CLIENT_ID,
+        scope:SCOPES,
+        callback:(resp)=>{
+          if(resp.error){document.getElementById("user-name").value=u;return;}
+          accessToken=resp.access_token;
+          localStorage.setItem("sl_token",accessToken);
+          localStorage.setItem("sl_token_exp",Date.now()+((resp.expires_in-60)*1000));
+          launchApp();
+        }
+      });
+      tokenClient.requestAccessToken({prompt:""});
     }
-  });
-  tokenClient.requestAccessToken({prompt:""});
-      }
+  } else {
+    document.getElementById("setup-screen").style.display="flex";
+  }
+}
+
+(function init(){
+  const savedPin=localStorage.getItem("sl_pin");
+  if(savedPin===APP_PIN){
+    document.getElementById("pin-screen").style.display="none";
+    bootApp();
   }
 })();
 </script>
